@@ -1,0 +1,5 @@
+feature,ks_stat,p_value,drifted
+SeniorCitizen,0.44,0.0,True
+tenure,0.2995,0.0,True
+MonthlyCharges,0.0321,0.191154,False
+TotalCharges,0.0296,0.270953,False

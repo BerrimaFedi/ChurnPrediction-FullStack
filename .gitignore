@@ -1,7 +1,6 @@
 __pycache__/
 *.pyc
 *.db
-data/raw/
 mlartifacts/
 src/mlartifacts/
 src/mlflow

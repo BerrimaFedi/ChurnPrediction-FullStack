@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Rapport Data Drift — Telco Churn</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; background: #f8fafc; color: #1e293b; }
+    h1 { color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 10px; }
+    h2 { color: #334155; margin-top: 30px; }
+    .summary-box {
+      background: white; border-left: 6px solid #dc2626;
+      padding: 20px 30px; border-radius: 6px; margin: 20px 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .summary-box .label { font-size: 1.3em; font-weight: bold; color: #dc2626; }
+    .metric { display: inline-block; margin: 10px 20px 10px 0; }
+    .metric .value { font-size: 2em; font-weight: bold; color: #1e3a8a; }
+    .metric .name { font-size: 0.85em; color: #64748b; }
+    table { border-collapse: collapse; width: 100%; background: white;
+             border-radius: 8px; overflow: hidden;
+             box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    th { background: #1e3a8a; color: white; padding: 12px 16px; text-align: left; }
+    td { padding: 10px 16px; border-bottom: 1px solid #e2e8f0; }
+    tr:hover { background: #f1f5f9; }
+    .note { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px;
+             padding: 12px 18px; margin: 20px 0; font-size: 0.9em; }
+    footer { margin-top: 40px; font-size: 0.8em; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <h1>📊 Rapport Data Drift — Telco Churn</h1>
+
+  <div class="note">
+    ℹ️ <strong>Note :</strong> Ce rapport a été généré via le test de Kolmogorov-Smirnov (scipy)
+    car Evidently est incompatible avec Python 3.14 (pydantic v1). Les résultats sont équivalents.
+  </div>
+
+  <h2>Résumé</h2>
+  <div class="summary-box">
+    <div class="label">Statut : CRITIQUE</div>
+    <br>
+    <div class="metric">
+      <div class="value">50.0%</div>
+      <div class="name">Drift Share</div>
+    </div>
+    <div class="metric">
+      <div class="value">2</div>
+      <div class="name">Features driftées</div>
+    </div>
+    <div class="metric">
+      <div class="value">4</div>
+      <div class="name">Total features</div>
+    </div>
+    <div class="metric">
+      <div class="value">p &lt; 0.05</div>
+      <div class="name">Seuil KS-test</div>
+    </div>
+  </div>
+
+  <h2>Résultats KS-test par feature</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th style="text-align:center">KS Statistic</th>
+        <th style="text-align:center">p-value</th>
+        <th style="text-align:center">Drifté ?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>SeniorCitizen</td><td style='text-align:center'>0.44</td><td style='text-align:center'>0.0</td><td style='text-align:center;color:#dc2626;font-weight:bold'>⚠️ OUI</td></tr>
+<tr><td>tenure</td><td style='text-align:center'>0.2995</td><td style='text-align:center'>0.0</td><td style='text-align:center;color:#dc2626;font-weight:bold'>⚠️ OUI</td></tr>
+<tr><td>MonthlyCharges</td><td style='text-align:center'>0.0321</td><td style='text-align:center'>0.191154</td><td style='text-align:center;color:#16a34a;font-weight:bold'>✅ NON</td></tr>
+<tr><td>TotalCharges</td><td style='text-align:center'>0.0296</td><td style='text-align:center'>0.270953</td><td style='text-align:center;color:#16a34a;font-weight:bold'>✅ NON</td></tr>
+
+    </tbody>
+  </table>
+
+  <h2>Interprétation</h2>
+  <p>
+    Le test KS compare la distribution de chaque feature entre les données de référence
+    (train) et les données de production simulées. Une p-value &lt; 0.05 indique un
+    changement statistiquement significatif de la distribution.
+  </p>
+  <p>
+    Seuils de déclenchement :
+    <ul>
+      <li><strong>Drift share &gt; 30%</strong> → ré-entraînement automatique déclenché</li>
+      <li><strong>Drift share &gt; 15%</strong> → alerte, surveillance renforcée</li>
+      <li><strong>Drift share ≤ 15%</strong> → modèle stable, aucune action</li>
+    </ul>
+  </p>
+
+  <footer>Généré automatiquement par tache5.py — Projet MLOps Churn Prediction</footer>
+</body>
+</html>

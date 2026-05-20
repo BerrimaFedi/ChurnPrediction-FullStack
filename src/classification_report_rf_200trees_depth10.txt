@@ -1,0 +1,10 @@
+Run: rf_200trees_depth10
+
+              precision    recall  f1-score   support
+
+    No Churn       0.84      0.91      0.87      1035
+       Churn       0.67      0.53      0.59       374
+
+    accuracy                           0.81      1409
+   macro avg       0.76      0.72      0.73      1409
+weighted avg       0.80      0.81      0.80      1409

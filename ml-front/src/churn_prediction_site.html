@@ -1,0 +1,2375 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChurnGuard — Prédiction du départ clients</title>
+<link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Epilogue:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* =============================================
+   RESET & ROOT
+============================================= */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --font-display: 'Clash Display', 'Syne', sans-serif;
+  --font-body:    'Epilogue', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  --bg:      #f5f2ed;
+  --bg2:     #ede9e2;
+  --bg3:     #e4dfd6;
+  --surface: #ffffff;
+  --surface2:#faf8f5;
+
+  --ink:     #1a1714;
+  --ink2:    #3d3830;
+  --muted:   #7a7268;
+  --hint:    #afa99f;
+  --border:  #dbd5cc;
+  --border2: #c8c1b5;
+
+  --red:        #c0392b;
+  --red-mid:    #e74c3c;
+  --red-light:  #fdf0ef;
+  --red-border: #f5c6c2;
+
+  --amber:        #c0760a;
+  --amber-mid:    #e8920e;
+  --amber-light:  #fef8ee;
+  --amber-border: #f5dba8;
+
+  --green:        #1e7e4a;
+  --green-mid:    #27ae60;
+  --green-light:  #edf7f1;
+  --green-border: #a8dfc0;
+
+  --blue:        #1a4f8a;
+  --blue-mid:    #2980b9;
+  --blue-light:  #edf4fb;
+  --blue-border: #a8d0ef;
+
+  --r:   6px;
+  --rl: 12px;
+  --rxl: 20px;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+/* =============================================
+   SHELL
+============================================= */
+.shell {
+  display: grid;
+  grid-template-rows: 56px 44px 1fr;
+  grid-template-columns: 260px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* =============================================
+   TOP BAR
+============================================= */
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  background: var(--ink);
+  color: white;
+  position: relative;
+  z-index: 20;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-mark {
+  width: 32px; height: 32px;
+  background: var(--red-mid);
+  border-radius: var(--r);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.logo-mark svg { width: 18px; height: 18px; fill: white; }
+
+.logo-name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: white;
+}
+
+.logo-name span { color: var(--red-mid); }
+
+.logo-tagline {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  border-left: 1px solid rgba(255,255,255,0.15);
+  padding-left: 12px;
+  margin-left: 4px;
+}
+
+.topbar-stats {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.top-stat {
+  text-align: center;
+  border-left: 1px solid rgba(255,255,255,0.1);
+  padding-left: 24px;
+}
+
+.top-stat-val {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: white;
+}
+
+.top-stat-val.danger { color: #ff6b5b; }
+.top-stat-val.warn   { color: #f39c12; }
+.top-stat-val.ok     { color: #2ecc71; }
+
+.top-stat-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-btn {
+  padding: 6px 14px;
+  border-radius: var(--r);
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.07);
+  color: white;
+  font-family: var(--font-body);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.top-btn:hover { background: rgba(255,255,255,0.14); }
+.top-btn.primary { background: var(--red-mid); border-color: var(--red-mid); }
+.top-btn.primary:hover { background: #c0392b; }
+
+/* =============================================
+   NAV TABS
+============================================= */
+.nav {
+  grid-column: 2 / 3;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 22px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  gap: 2px;
+}
+
+.nav-tab {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.nav-tab:hover { color: var(--ink); }
+.nav-tab.active { color: var(--red); border-bottom-color: var(--red); }
+
+.nav-count {
+  background: var(--red-light);
+  color: var(--red);
+  border: 1px solid var(--red-border);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+}
+
+.nav-count.warn {
+  background: var(--amber-light);
+  color: var(--amber);
+  border-color: var(--amber-border);
+}
+
+/* =============================================
+   SIDEBAR
+============================================= */
+.sidebar {
+  grid-row: 2 / 4;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 16px 18px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 7px 10px;
+  margin-bottom: 10px;
+}
+
+.sidebar-search svg { width: 13px; height: 13px; color: var(--hint); flex-shrink: 0; }
+
+.sidebar-search input {
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--ink);
+  outline: none;
+  width: 100%;
+}
+
+.sidebar-search input::placeholder { color: var(--hint); }
+
+.filter-row {
+  display: flex;
+  gap: 5px;
+}
+
+.filter-chip {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.12s;
+  font-weight: 500;
+}
+
+.filter-chip:hover { border-color: var(--border2); color: var(--ink); }
+
+.filter-chip.active-red {
+  background: var(--red-light);
+  color: var(--red);
+  border-color: var(--red-border);
+}
+
+.filter-chip.active-amber {
+  background: var(--amber-light);
+  color: var(--amber);
+  border-color: var(--amber-border);
+}
+
+.filter-chip.active-green {
+  background: var(--green-light);
+  color: var(--green);
+  border-color: var(--green-border);
+}
+
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+}
+
+/* Client rows */
+.client-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 8px;
+  border-radius: var(--rl);
+  cursor: pointer;
+  transition: background 0.12s;
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+}
+
+.client-row:hover { background: var(--bg); border-color: var(--border); }
+.client-row.selected { background: var(--red-light); border-color: var(--red-border); }
+
+.client-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-display);
+  flex-shrink: 0;
+}
+
+.avatar-red    { background: var(--red-light); color: var(--red); }
+.avatar-amber  { background: var(--amber-light); color: var(--amber); }
+.avatar-green  { background: var(--green-light); color: var(--green); }
+.avatar-blue   { background: var(--blue-light); color: var(--blue); }
+
+.client-info { flex: 1; min-width: 0; }
+
+.client-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-id {
+  font-size: 10px;
+  color: var(--hint);
+  font-family: var(--font-mono);
+}
+
+.risk-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+
+.risk-high   { background: var(--red-light); color: var(--red); border: 1px solid var(--red-border); }
+.risk-medium { background: var(--amber-light); color: var(--amber); border: 1px solid var(--amber-border); }
+.risk-low    { background: var(--green-light); color: var(--green); border: 1px solid var(--green-border); }
+
+/* =============================================
+   CONTENT
+============================================= */
+.content {
+  grid-row: 3 / 4;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.page { display: none; flex-direction: column; }
+.page.active { display: flex; }
+
+/* =============================================
+   PAGE: OVERVIEW
+============================================= */
+#page-overview {
+  padding: 22px;
+  gap: 18px;
+}
+
+.overview-hero {
+  background: var(--ink);
+  border-radius: var(--rxl);
+  padding: 28px 32px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.overview-hero::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 240px; height: 240px;
+  background: radial-gradient(circle, rgba(192,57,43,0.3) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 6px;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin-bottom: 10px;
+}
+
+.hero-title span { color: #ff6b5b; }
+
+.hero-desc {
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+  max-width: 400px;
+  line-height: 1.7;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 20px;
+}
+
+.hero-stat {
+  text-align: center;
+  padding: 14px 20px;
+  background: rgba(255,255,255,0.06);
+  border-radius: var(--rl);
+  border: 1px solid rgba(255,255,255,0.08);
+  min-width: 90px;
+}
+
+.hero-stat-val {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  color: white;
+  display: block;
+}
+
+.hero-stat-val.danger { color: #ff6b5b; }
+.hero-stat-val.warn   { color: #f7a74f; }
+.hero-stat-val.ok     { color: #3ecf82; }
+
+.hero-stat-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 3px;
+}
+
+/* KPI row */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rl);
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+
+.kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+
+.kpi-stripe {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.stripe-red    { background: linear-gradient(90deg, var(--red-mid), #e74c3c88); }
+.stripe-amber  { background: linear-gradient(90deg, var(--amber-mid), #e8920e88); }
+.stripe-green  { background: linear-gradient(90deg, var(--green-mid), #27ae6088); }
+.stripe-blue   { background: linear-gradient(90deg, var(--blue-mid), #2980b988); }
+
+.kpi-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--r);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.kpi-icon-red    { background: var(--red-light); }
+.kpi-icon-amber  { background: var(--amber-light); }
+.kpi-icon-green  { background: var(--green-light); }
+.kpi-icon-blue   { background: var(--blue-light); }
+
+.kpi-val {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.kpi-val.c-red   { color: var(--red); }
+.kpi-val.c-amber { color: var(--amber); }
+.kpi-val.c-green { color: var(--green); }
+.kpi-val.c-blue  { color: var(--blue); }
+
+.kpi-label { font-size: 12px; color: var(--muted); }
+
+.kpi-delta {
+  font-size: 11px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.delta-up   { color: var(--red); }
+.delta-down { color: var(--green); }
+.delta-flat { color: var(--muted); }
+
+/* Charts row */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rl);
+  padding: 18px 20px;
+}
+
+.chart-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  letter-spacing: -0.01em;
+}
+
+.chart-sub { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
+
+.chip {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--bg2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+}
+
+/* Bar chart manual */
+.bar-chart { display: flex; flex-direction: column; gap: 8px; }
+
+.bc-row { display: flex; align-items: center; gap: 10px; }
+.bc-label { font-size: 12px; color: var(--muted); width: 140px; flex-shrink: 0; font-family: var(--font-mono); font-size: 11px; }
+.bc-track { flex: 1; height: 8px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+.bc-fill  { height: 100%; border-radius: 4px; }
+.bc-val   { font-size: 11px; font-family: var(--font-mono); color: var(--muted); width: 40px; text-align: right; }
+
+/* Donut (SVG) */
+.donut-wrap { display: flex; align-items: center; gap: 20px; }
+.donut-legend { display: flex; flex-direction: column; gap: 8px; }
+.donut-legend-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.donut-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+/* Contract breakdown */
+.contract-bars { display: flex; flex-direction: column; gap: 10px; }
+.cbar-row { display: flex; align-items: center; gap: 10px; }
+.cbar-label { font-size: 12px; color: var(--muted); width: 130px; flex-shrink: 0; }
+.cbar-track { flex: 1; height: 22px; background: var(--bg2); border-radius: 4px; overflow: hidden; position: relative; }
+.cbar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; }
+.cbar-fill-pct { font-size: 10px; font-family: var(--font-mono); font-weight: 500; }
+.cbar-total { font-size: 11px; font-family: var(--font-mono); color: var(--muted); width: 36px; text-align: right; }
+
+/* =============================================
+   PAGE: CLIENTS
+============================================= */
+#page-clients {
+  padding: 0;
+}
+
+.client-detail {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  height: 100%;
+}
+
+.client-table-panel {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.panel-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.client-full-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.client-table-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 80px 72px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: background 0.1s;
+  border: 1px solid transparent;
+}
+
+.client-table-row:hover { background: var(--bg); }
+.client-table-row.selected { background: var(--red-light); border-color: var(--red-border); }
+
+.ct-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+  flex-shrink: 0;
+}
+
+.ct-name { font-size: 12px; font-weight: 500; }
+.ct-id   { font-size: 10px; color: var(--hint); font-family: var(--font-mono); }
+.ct-risk { font-size: 10px; font-weight: 600; font-family: var(--font-mono); padding: 2px 6px; border-radius: 20px; text-align: center; }
+.ct-score { font-size: 12px; font-family: var(--font-mono); text-align: right; font-weight: 500; }
+
+/* Client detail panel */
+.client-profile-panel {
+  padding: 22px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  background: var(--surface);
+  padding: 16px 20px;
+  border-radius: var(--rl);
+  border: 1px solid var(--border);
+}
+
+.profile-avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700;
+  font-family: var(--font-display);
+  flex-shrink: 0;
+}
+
+.profile-name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.profile-id { font-size: 12px; color: var(--hint); font-family: var(--font-mono); margin-top: 2px; }
+
+.profile-risk-pill {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.big-risk-badge {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+}
+
+.churn-prob {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Profile grid */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.profile-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rl);
+  padding: 14px 16px;
+}
+
+.profile-card-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--hint);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.profile-fields { display: flex; flex-direction: column; gap: 7px; }
+
+.profile-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.profile-field-label { color: var(--muted); }
+.profile-field-val   { font-weight: 500; color: var(--ink); font-family: var(--font-mono); }
+
+/* Risk gauge */
+.gauge-wrap { text-align: center; padding: 8px 0; }
+.gauge-pct {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--red);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.gauge-bar-track {
+  height: 8px;
+  background: var(--bg2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.gauge-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #27ae60, #f39c12, #e74c3c);
+}
+
+.gauge-label { font-size: 11px; color: var(--muted); }
+
+/* Factors */
+.factors-list { display: flex; flex-direction: column; gap: 8px; }
+
+.factor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.factor-icon { font-size: 14px; flex-shrink: 0; }
+.factor-text { flex: 1; font-size: 12px; color: var(--ink2); }
+.factor-impact {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+.impact-high   { background: var(--red-light); color: var(--red); }
+.impact-medium { background: var(--amber-light); color: var(--amber); }
+.impact-low    { background: var(--green-light); color: var(--green); }
+
+/* Action buttons */
+.action-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 9px 14px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.action-btn:hover { background: var(--bg2); border-color: var(--border2); }
+.action-btn.primary { background: var(--red-mid); border-color: var(--red-mid); color: white; }
+.action-btn.primary:hover { background: var(--red); }
+.action-btn.secondary { background: var(--blue-light); border-color: var(--blue-border); color: var(--blue); }
+
+/* =============================================
+   PAGE: TRAINING (kept)
+============================================= */
+#page-training {
+  padding: 22px;
+  gap: 16px;
+}
+
+.training-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+}
+
+.train-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rl);
+  padding: 18px 20px;
+}
+
+.train-section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--hint);
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  margin-bottom: 5px;
+  transition: all 0.12s;
+  background: var(--surface);
+}
+
+.model-option:hover { border-color: var(--border2); background: var(--bg); }
+.model-option.active { border-color: var(--red-border); background: var(--red-light); }
+
+.mo-radio {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border2);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+
+.model-option.active .mo-radio {
+  border-color: var(--red-mid);
+  background: var(--red-mid);
+}
+
+.model-option.active .mo-radio::after {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: white;
+}
+
+.mo-info { flex: 1; }
+.mo-name { font-size: 13px; font-weight: 500; color: var(--ink); }
+.model-option.active .mo-name { color: var(--red); }
+.mo-type { font-size: 10px; color: var(--hint); }
+.mo-acc  { font-family: var(--font-mono); font-size: 12px; color: var(--green); }
+
+/* Params */
+.param-row { margin-bottom: 14px; }
+
+.param-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.param-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--red-light);
+  color: var(--red);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--red-border);
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg2);
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--red-mid);
+  border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+select {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23afa99f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  transition: border-color 0.12s;
+}
+
+select:focus { border-color: var(--red-mid); }
+
+/* Train buttons */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: var(--r);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  transition: all 0.15s;
+  width: 100%;
+  margin-bottom: 7px;
+}
+
+.btn:hover { background: var(--bg2); }
+.btn svg   { width: 13px; height: 13px; flex-shrink: 0; }
+
+.btn-red {
+  background: var(--red-mid);
+  border-color: var(--red-mid);
+  color: white;
+}
+
+.btn-red:hover {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.btn-amber {
+  background: var(--amber-light);
+  border-color: var(--amber-border);
+  color: var(--amber);
+}
+
+.btn-green {
+  background: var(--green-light);
+  border-color: var(--green-border);
+  color: var(--green);
+}
+
+/* Training results */
+.train-status-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  min-height: 40px;
+  font-family: var(--font-mono);
+}
+
+.progress-track {
+  height: 5px;
+  background: var(--bg2);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--red-mid), #e74c3c);
+  width: 0%;
+  transition: width 0.35s ease;
+}
+
+.progress-label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+
+/* Metrics in results */
+.result-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.result-metric {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 14px;
+}
+
+.rm-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+.rm-val   { font-family: var(--font-mono); font-size: 20px; font-weight: 500; }
+.rm-val.good { color: var(--green); }
+.rm-val.ok   { color: var(--blue); }
+.rm-val.warn { color: var(--amber); }
+
+/* Feature importance */
+.feat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.feat-name {
+  width: 150px;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feat-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.feat-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--red-mid), var(--amber-mid));
+}
+
+.feat-val {
+  width: 40px;
+  text-align: right;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--red);
+}
+
+/* Confusion matrix */
+.cm-grid-2 {
+  display: grid;
+  grid-template-columns: 18px 1fr 1fr;
+  grid-template-rows: 16px 1fr 1fr;
+  gap: 4px;
+}
+
+.cm-ax {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--hint);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.cm-c {
+  border-radius: var(--r);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  gap: 2px;
+}
+
+.cm-n  { font-family: var(--font-mono); font-size: 18px; font-weight: 500; }
+.cm-s  { font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; }
+
+.cm-tp, .cm-tn { background: var(--green-light); color: var(--green); border: 1px solid var(--green-border); }
+.cm-fp { background: var(--red-light); color: var(--red); border: 1px solid var(--red-border); }
+.cm-fn { background: var(--amber-light); color: var(--amber); border: 1px solid var(--amber-border); }
+
+/* ROC */
+.roc-svg { width: 100%; height: 140px; }
+
+/* =============================================
+   PAGE: ALERTS
+============================================= */
+#page-alerts {
+  padding: 22px;
+  gap: 14px;
+}
+
+.alert-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.af-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.12s;
+}
+
+.af-btn:hover { border-color: var(--border2); color: var(--ink); }
+.af-btn.active { background: var(--red-light); color: var(--red); border-color: var(--red-border); }
+
+.alert-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rl);
+  padding: 16px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  transition: box-shadow 0.12s;
+  cursor: pointer;
+}
+
+.alert-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+
+.alert-card.high   { border-left: 3px solid var(--red-mid); }
+.alert-card.medium { border-left: 3px solid var(--amber-mid); }
+.alert-card.low    { border-left: 3px solid var(--green-mid); }
+
+.alert-icon {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.ai-red    { background: var(--red-light); }
+.ai-amber  { background: var(--amber-light); }
+.ai-green  { background: var(--green-light); }
+
+.alert-body { flex: 1; }
+
+.alert-name {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+
+.alert-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+.alert-meta {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.alert-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--bg);
+  font-family: var(--font-mono);
+}
+
+.alert-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.alert-prob {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.alert-prob.high   { color: var(--red); }
+.alert-prob.medium { color: var(--amber); }
+.alert-prob.low    { color: var(--green); }
+
+.alert-time { font-size: 10px; color: var(--hint); }
+
+.alert-act-btn {
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.12s;
+}
+
+.aab-red   { background: var(--red-light); color: var(--red); border-color: var(--red-border); }
+.aab-red:hover { background: var(--red-mid); color: white; }
+.aab-amber { background: var(--amber-light); color: var(--amber); border-color: var(--amber-border); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- =========================================
+     TOP BAR
+========================================= -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 20 20"><path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 3l2 4h-4l2-4zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+    </div>
+    <span class="logo-name">Churn<span>Guard</span></span>
+    <span class="logo-tagline">Telco Customer Churn Prediction</span>
+  </div>
+
+  <div class="topbar-stats">
+    <div class="top-stat">
+      <div class="top-stat-val danger">1 869</div>
+      <div class="top-stat-label">Clients à risque</div>
+    </div>
+    <div class="top-stat">
+      <div class="top-stat-val warn">26.5%</div>
+      <div class="top-stat-label">Taux de churn</div>
+    </div>
+    <div class="top-stat">
+      <div class="top-stat-val ok">80.4%</div>
+      <div class="top-stat-label">Précision modèle</div>
+    </div>
+    <div class="top-stat">
+      <div class="top-stat-val">7 043</div>
+      <div class="top-stat-label">Clients totaux</div>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <button class="top-btn" onclick="exportCSV()">⬇ Exporter CSV</button>
+    <button class="top-btn primary" onclick="showTab('training')">⚙ Ré-entraîner</button>
+  </div>
+</header>
+
+<!-- =========================================
+     SIDEBAR — liste clients
+========================================= -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-search">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" placeholder="Rechercher un client…" oninput="filterClients(this.value)">
+    </div>
+    <div class="filter-row">
+      <div class="filter-chip active-red" onclick="filterRisk('high', this)">Élevé</div>
+      <div class="filter-chip active-amber" onclick="filterRisk('medium', this)">Moyen</div>
+      <div class="filter-chip" onclick="filterRisk('low', this)">Faible</div>
+      <div class="filter-chip" onclick="filterRisk('all', this)">Tous</div>
+    </div>
+  </div>
+
+  <div class="sidebar-list" id="sidebar-client-list">
+    <!-- High risk clients -->
+    <div class="client-row selected" onclick="showClient(this, 'martin')">
+      <div class="client-avatar avatar-red">MR</div>
+      <div class="client-info">
+        <div class="client-name">Martin Rousseau</div>
+        <div class="client-id">7590-VHVEG</div>
+      </div>
+      <span class="risk-badge risk-high">ÉLEVÉ</span>
+    </div>
+
+    <div class="client-row" onclick="showClient(this, 'leila')">
+      <div class="client-avatar avatar-red">LB</div>
+      <div class="client-info">
+        <div class="client-name">Leila Benali</div>
+        <div class="client-id">3668-QPYBK</div>
+      </div>
+      <span class="risk-badge risk-high">ÉLEVÉ</span>
+    </div>
+
+    <div class="client-row" onclick="showClient(this, 'omar')">
+      <div class="client-avatar avatar-red">OK</div>
+      <div class="client-info">
+        <div class="client-name">Omar Khalil</div>
+        <div class="client-id">9237-HQITU</div>
+      </div>
+      <span class="risk-badge risk-high">ÉLEVÉ</span>
+    </div>
+
+    <div class="client-row" onclick="showClient(this, 'nadia')">
+      <div class="client-avatar avatar-red">NM</div>
+      <div class="client-info">
+        <div class="client-name">Nadia Mansouri</div>
+        <div class="client-id">9305-CDSKC</div>
+      </div>
+      <span class="risk-badge risk-high">ÉLEVÉ</span>
+    </div>
+
+    <div class="client-row" onclick="showClient(this, 'youssef')">
+      <div class="client-avatar avatar-amber">YT</div>
+      <div class="client-info">
+        <div class="client-name">Youssef Trabelsi</div>
+        <div class="client-id">5575-GNVDE</div>
+      </div>
+      <span class="risk-badge risk-medium">MOYEN</span>
+    </div>
+
+    <div class="client-row" onclick="showClient(this, 'sonia')">
+      <div class="client-avatar avatar-amber">SH</div>
+      <div class="client-info">
+        <div class="client-name">Sonia Hamdi</div>
+        <div class="client-id">1452-KIOVK</div>
+      </div>
+      <span class="risk-badge risk-medium">MOYEN</span>
+    </div>
+
+    <div class="client-row" onclick="showClient(this, 'ali')">
+      <div class="client-avatar avatar-amber">AB</div>
+      <div class="client-info">
+        <div class="client-name">Ali Bouazizi</div>
+        <div class="client-id">8779-QRDMV</div>
+      </div>
+      <span class="risk-badge risk-medium">MOYEN</span>
+    </div>
+
+    <div class="client-row" onclick="showClient(this, 'fatma')">
+      <div class="client-avatar avatar-green">FC</div>
+      <div class="client-info">
+        <div class="client-name">Fatma Chaabane</div>
+        <div class="client-id">7795-CFOCW</div>
+      </div>
+      <span class="risk-badge risk-low">FAIBLE</span>
+    </div>
+
+    <div class="client-row" onclick="showClient(this, 'karim')">
+      <div class="client-avatar avatar-green">KD</div>
+      <div class="client-info">
+        <div class="client-name">Karim Dridi</div>
+        <div class="client-id">6388-TABGU</div>
+      </div>
+      <span class="risk-badge risk-low">FAIBLE</span>
+    </div>
+  </div>
+</aside>
+
+<!-- =========================================
+     NAV TABS
+========================================= -->
+<nav class="nav">
+  <div class="nav-tab active" onclick="showTab('overview')">Vue d'ensemble</div>
+  <div class="nav-tab" onclick="showTab('clients')">
+    Clients
+    <span class="nav-count">1 869</span>
+  </div>
+  <div class="nav-tab" onclick="showTab('alerts')">
+    Alertes
+    <span class="nav-count warn">47</span>
+  </div>
+  <div class="nav-tab" onclick="showTab('training')">Entraînement ML</div>
+</nav>
+
+<!-- =========================================
+     CONTENT
+========================================= -->
+<main class="content">
+
+  <!-- ===== OVERVIEW ===== -->
+  <div class="page active" id="page-overview">
+
+    <div class="overview-hero">
+      <div>
+        <div class="hero-label">Analyse prédictive · Telco Dataset</div>
+        <div class="hero-title">
+          <span>1 869 clients</span> risquent<br>de quitter votre réseau
+        </div>
+        <div class="hero-desc">
+          Le modèle Random Forest détecte les signaux de départ : contrats mensuels,
+          frais élevés, faible ancienneté. Agissez avant qu'il ne soit trop tard.
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-stat-val danger">587</span>
+          <div class="hero-stat-label">Risque élevé</div>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-val warn">1 282</span>
+          <div class="hero-stat-label">Risque moyen</div>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-val ok">5 174</span>
+          <div class="hero-stat-label">Stables</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-stripe stripe-red"></div>
+        <div class="kpi-icon kpi-icon-red">🚨</div>
+        <div class="kpi-val c-red">26.5%</div>
+        <div class="kpi-label">Taux de churn global</div>
+        <div class="kpi-delta delta-up">↑ +2.1% ce trimestre</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-stripe stripe-amber"></div>
+        <div class="kpi-icon kpi-icon-amber">📅</div>
+        <div class="kpi-val c-amber">14.3</div>
+        <div class="kpi-label">Ancienneté moyenne (mois)</div>
+        <div class="kpi-delta delta-down">↓ −3 mois vs clients stables</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-stripe stripe-green"></div>
+        <div class="kpi-icon kpi-icon-green">💰</div>
+        <div class="kpi-val c-green">64.76$</div>
+        <div class="kpi-label">Charge mensuelle moy. (churners)</div>
+        <div class="kpi-delta delta-up">↑ +12$ vs clients stables</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-stripe stripe-blue"></div>
+        <div class="kpi-icon kpi-icon-blue">🎯</div>
+        <div class="kpi-val c-blue">0.853</div>
+        <div class="kpi-label">ROC-AUC du modèle</div>
+        <div class="kpi-delta delta-flat">— Random Forest 100 arbres</div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <!-- Churn by contract type -->
+      <div class="chart-card">
+        <div class="chart-title">
+          Taux de churn par type de contrat
+          <span class="chip">3 segments</span>
+        </div>
+        <div class="chart-sub">Les contrats mois-à-mois représentent 88% des churners</div>
+        <div class="contract-bars">
+          <div class="cbar-row">
+            <div class="cbar-label">Mois à mois</div>
+            <div class="cbar-track">
+              <div class="cbar-fill" style="width:88%; background: linear-gradient(90deg,#e74c3c,#e74c3c88);">
+                <span class="cbar-fill-pct" style="color:white;">42.7%</span>
+              </div>
+            </div>
+            <div class="cbar-total">3 875</div>
+          </div>
+          <div class="cbar-row">
+            <div class="cbar-label">Un an</div>
+            <div class="cbar-track">
+              <div class="cbar-fill" style="width:28%; background: linear-gradient(90deg,#f39c12,#f39c1288);">
+                <span class="cbar-fill-pct" style="color:white;">11.3%</span>
+              </div>
+            </div>
+            <div class="cbar-total">1 473</div>
+          </div>
+          <div class="cbar-row">
+            <div class="cbar-label">Deux ans</div>
+            <div class="cbar-track">
+              <div class="cbar-fill" style="width:9%; background: linear-gradient(90deg,#27ae60,#27ae6088);">
+                <span class="cbar-fill-pct" style="color:white;">2.8%</span>
+              </div>
+            </div>
+            <div class="cbar-total">1 695</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top churn reasons -->
+      <div class="chart-card">
+        <div class="chart-title">
+          Facteurs déclencheurs du churn
+          <span class="chip">Feature importance</span>
+        </div>
+        <div class="chart-sub">Variables les plus prédictives selon le modèle Random Forest</div>
+        <div class="bar-chart">
+          <div class="bc-row">
+            <div class="bc-label">tenure (ancienneté)</div>
+            <div class="bc-track"><div class="bc-fill" style="width:100%;background:var(--red-mid)"></div></div>
+            <div class="bc-val" style="color:var(--red)">22.1%</div>
+          </div>
+          <div class="bc-row">
+            <div class="bc-label">TotalCharges</div>
+            <div class="bc-track"><div class="bc-fill" style="width:83%;background:var(--red-mid)"></div></div>
+            <div class="bc-val" style="color:var(--red)">18.3%</div>
+          </div>
+          <div class="bc-row">
+            <div class="bc-label">MonthlyCharges</div>
+            <div class="bc-track"><div class="bc-fill" style="width:70%;background:var(--amber-mid)"></div></div>
+            <div class="bc-val" style="color:var(--amber)">15.4%</div>
+          </div>
+          <div class="bc-row">
+            <div class="bc-label">Contract_Two year</div>
+            <div class="bc-track"><div class="bc-fill" style="width:55%;background:var(--amber-mid)"></div></div>
+            <div class="bc-val" style="color:var(--amber)">12.1%</div>
+          </div>
+          <div class="bc-row">
+            <div class="bc-label">InternetService_FO</div>
+            <div class="bc-track"><div class="bc-fill" style="width:42%;background:var(--blue-mid)"></div></div>
+            <div class="bc-val" style="color:var(--blue)">9.2%</div>
+          </div>
+          <div class="bc-row">
+            <div class="bc-label">PaymentMethod</div>
+            <div class="bc-track"><div class="bc-fill" style="width:32%;background:var(--blue-mid)"></div></div>
+            <div class="bc-val" style="color:var(--blue)">7.1%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Churners donut + monthly trend -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Répartition du risque <span class="chip">7 043 clients</span></div>
+        <div class="chart-sub">Distribution des clients par niveau de risque prédit</div>
+        <div class="donut-wrap">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <!-- stroke-dasharray trick for donut -->
+            <circle cx="60" cy="60" r="44" fill="none" stroke="#fdf0ef" stroke-width="18"/>
+            <!-- Green segment (stable 73.5%) -->
+            <circle cx="60" cy="60" r="44" fill="none" stroke="#27ae60" stroke-width="18"
+              stroke-dasharray="203 276" stroke-dashoffset="0" transform="rotate(-90 60 60)" opacity="0.8"/>
+            <!-- Amber segment (medium 18.2%) -->
+            <circle cx="60" cy="60" r="44" fill="none" stroke="#f39c12" stroke-width="18"
+              stroke-dasharray="50 276" stroke-dashoffset="-203" transform="rotate(-90 60 60)" opacity="0.9"/>
+            <!-- Red segment (high 8.3%) -->
+            <circle cx="60" cy="60" r="44" fill="none" stroke="#e74c3c" stroke-width="18"
+              stroke-dasharray="23 276" stroke-dashoffset="-253" transform="rotate(-90 60 60)"/>
+            <text x="60" y="56" text-anchor="middle" font-size="14" font-weight="700" fill="#1a1714" font-family="JetBrains Mono">26.5%</text>
+            <text x="60" y="68" text-anchor="middle" font-size="9" fill="#7a7268" font-family="Epilogue">churn rate</text>
+          </svg>
+          <div class="donut-legend">
+            <div class="donut-legend-row">
+              <div class="donut-dot" style="background:var(--red-mid)"></div>
+              <div><strong style="color:var(--red)">587</strong> <span style="color:var(--muted)">risque élevé (8.3%)</span></div>
+            </div>
+            <div class="donut-legend-row">
+              <div class="donut-dot" style="background:var(--amber-mid)"></div>
+              <div><strong style="color:var(--amber)">1 282</strong> <span style="color:var(--muted)">risque moyen (18.2%)</span></div>
+            </div>
+            <div class="donut-legend-row">
+              <div class="donut-dot" style="background:var(--green-mid)"></div>
+              <div><strong style="color:var(--green)">5 174</strong> <span style="color:var(--muted)">stables (73.5%)</span></div>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:8px;">
+              Coût estimé du churn :<br>
+              <strong style="color:var(--red);font-family:var(--font-mono)">~$121 000 / mois</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Churn par service internet <span class="chip">3 catégories</span></div>
+        <div class="chart-sub">Les abonnés fibre optique churne 3× plus que les clients sans internet</div>
+        <div class="bar-chart" style="margin-top:8px">
+          <div class="bc-row">
+            <div class="bc-label">Fibre optique</div>
+            <div class="bc-track"><div class="bc-fill" style="width:90%;background:var(--red-mid)"></div></div>
+            <div class="bc-val" style="color:var(--red)">41.9%</div>
+          </div>
+          <div class="bc-row">
+            <div class="bc-label">DSL</div>
+            <div class="bc-track"><div class="bc-fill" style="width:45%;background:var(--amber-mid)"></div></div>
+            <div class="bc-val" style="color:var(--amber)">19.0%</div>
+          </div>
+          <div class="bc-row">
+            <div class="bc-label">Sans internet</div>
+            <div class="bc-track"><div class="bc-fill" style="width:22%;background:var(--green-mid)"></div></div>
+            <div class="bc-val" style="color:var(--green)">7.4%</div>
+          </div>
+          <div style="height:1px;background:var(--border);margin:12px 0;"></div>
+          <div style="font-size:11px;color:var(--muted);">
+            <strong style="color:var(--ink)">Insight :</strong> Les clients fibre avec paiement automatique par chèque électronique ont 55% de probabilité de churn. Cibler ce segment en priorité.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /overview -->
+
+  <!-- ===== CLIENTS ===== -->
+  <div class="page" id="page-clients">
+    <div class="client-detail">
+
+      <!-- Left: full table -->
+      <div class="client-table-panel">
+        <div class="panel-header">
+          <div class="panel-title">Tous les clients à risque</div>
+          <span class="chip">1 869 résultats</span>
+        </div>
+        <div class="client-full-list">
+          <div class="client-table-row selected" onclick="selectClientRow(this, 'martin')">
+            <div class="ct-avatar avatar-red">MR</div>
+            <div><div class="ct-name">Martin Rousseau</div><div class="ct-id">7590-VHVEG</div></div>
+            <span class="ct-risk risk-high" style="font-size:9px;padding:2px 6px;border-radius:20px;">ÉLEVÉ</span>
+            <span class="ct-score" style="color:var(--red)">87%</span>
+          </div>
+          <div class="client-table-row" onclick="selectClientRow(this, 'leila')">
+            <div class="ct-avatar avatar-red">LB</div>
+            <div><div class="ct-name">Leila Benali</div><div class="ct-id">3668-QPYBK</div></div>
+            <span class="ct-risk risk-high" style="font-size:9px;padding:2px 6px;border-radius:20px;">ÉLEVÉ</span>
+            <span class="ct-score" style="color:var(--red)">84%</span>
+          </div>
+          <div class="client-table-row" onclick="selectClientRow(this, 'omar')">
+            <div class="ct-avatar avatar-red">OK</div>
+            <div><div class="ct-name">Omar Khalil</div><div class="ct-id">9237-HQITU</div></div>
+            <span class="ct-risk risk-high" style="font-size:9px;padding:2px 6px;border-radius:20px;">ÉLEVÉ</span>
+            <span class="ct-score" style="color:var(--red)">79%</span>
+          </div>
+          <div class="client-table-row" onclick="selectClientRow(this, 'nadia')">
+            <div class="ct-avatar avatar-red">NM</div>
+            <div><div class="ct-name">Nadia Mansouri</div><div class="ct-id">9305-CDSKC</div></div>
+            <span class="ct-risk risk-high" style="font-size:9px;padding:2px 6px;border-radius:20px;">ÉLEVÉ</span>
+            <span class="ct-score" style="color:var(--red)">76%</span>
+          </div>
+          <div class="client-table-row" onclick="selectClientRow(this, 'youssef')">
+            <div class="ct-avatar avatar-amber">YT</div>
+            <div><div class="ct-name">Youssef Trabelsi</div><div class="ct-id">5575-GNVDE</div></div>
+            <span class="ct-risk risk-medium" style="font-size:9px;padding:2px 6px;border-radius:20px;">MOYEN</span>
+            <span class="ct-score" style="color:var(--amber)">58%</span>
+          </div>
+          <div class="client-table-row" onclick="selectClientRow(this, 'sonia')">
+            <div class="ct-avatar avatar-amber">SH</div>
+            <div><div class="ct-name">Sonia Hamdi</div><div class="ct-id">1452-KIOVK</div></div>
+            <span class="ct-risk risk-medium" style="font-size:9px;padding:2px 6px;border-radius:20px;">MOYEN</span>
+            <span class="ct-score" style="color:var(--amber)">53%</span>
+          </div>
+          <div class="client-table-row" onclick="selectClientRow(this, 'ali')">
+            <div class="ct-avatar avatar-amber">AB</div>
+            <div><div class="ct-name">Ali Bouazizi</div><div class="ct-id">8779-QRDMV</div></div>
+            <span class="ct-risk risk-medium" style="font-size:9px;padding:2px 6px;border-radius:20px;">MOYEN</span>
+            <span class="ct-score" style="color:var(--amber)">48%</span>
+          </div>
+          <div class="client-table-row" onclick="selectClientRow(this, 'fatma')">
+            <div class="ct-avatar avatar-green">FC</div>
+            <div><div class="ct-name">Fatma Chaabane</div><div class="ct-id">7795-CFOCW</div></div>
+            <span class="ct-risk risk-low" style="font-size:9px;padding:2px 6px;border-radius:20px;">FAIBLE</span>
+            <span class="ct-score" style="color:var(--green)">12%</span>
+          </div>
+          <div class="client-table-row" onclick="selectClientRow(this, 'karim')">
+            <div class="ct-avatar avatar-green">KD</div>
+            <div><div class="ct-name">Karim Dridi</div><div class="ct-id">6388-TABGU</div></div>
+            <span class="ct-risk risk-low" style="font-size:9px;padding:2px 6px;border-radius:20px;">FAIBLE</span>
+            <span class="ct-score" style="color:var(--green)">8%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: client profile -->
+      <div class="client-profile-panel" id="client-profile-panel">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div><!-- /clients -->
+
+  <!-- ===== ALERTS ===== -->
+  <div class="page" id="page-alerts">
+
+    <div class="alert-filters">
+      <div class="af-btn active">Tous (47)</div>
+      <div class="af-btn">🔴 Critique (12)</div>
+      <div class="af-btn">🟡 Attention (24)</div>
+      <div class="af-btn">🟢 Surveillance (11)</div>
+      <div class="af-btn">Non traités</div>
+    </div>
+
+    <div class="alert-card high">
+      <div class="alert-icon ai-red">🚨</div>
+      <div class="alert-body">
+        <div class="alert-name">Martin Rousseau — Départ imminent détecté</div>
+        <div class="alert-desc">Contrat mois-à-mois depuis 1 mois, fibre optique à 99.65$/mois, paiement électronique. Tous les signaux critiques sont réunis. Intervention urgente recommandée.</div>
+        <div class="alert-meta">
+          <span class="alert-tag">7590-VHVEG</span>
+          <span class="alert-tag">tenure: 1 mois</span>
+          <span class="alert-tag">Fibre optique</span>
+          <span class="alert-tag">Mois-à-mois</span>
+        </div>
+      </div>
+      <div class="alert-right">
+        <div class="alert-prob high">87%</div>
+        <div class="alert-time">il y a 2h</div>
+        <button class="alert-act-btn aab-red" onclick="alert('Offre de rétention envoyée à Martin Rousseau')">Contacter</button>
+      </div>
+    </div>
+
+    <div class="alert-card high">
+      <div class="alert-icon ai-red">⚠️</div>
+      <div class="alert-body">
+        <div class="alert-name">Nadia Mansouri — Facturation anormalement élevée</div>
+        <div class="alert-desc">99.65$/mois depuis 8 mois. Pas d'engagement long terme. Profil similaire à 320 clients ayant churné ce trimestre.</div>
+        <div class="alert-meta">
+          <span class="alert-tag">9305-CDSKC</span>
+          <span class="alert-tag">$99.65/mois</span>
+          <span class="alert-tag">8 mois</span>
+        </div>
+      </div>
+      <div class="alert-right">
+        <div class="alert-prob high">76%</div>
+        <div class="alert-time">il y a 5h</div>
+        <button class="alert-act-btn aab-red" onclick="alert('Proposition de remise envoyée')">Offrir remise</button>
+      </div>
+    </div>
+
+    <div class="alert-card medium">
+      <div class="alert-icon ai-amber">📉</div>
+      <div class="alert-body">
+        <div class="alert-name">Youssef Trabelsi — Passage au contrat mensuel détecté</div>
+        <div class="alert-desc">A rétrogradé d'un contrat annuel au mois-à-mois il y a 2 mois. Risque de churn multiplié par 3 selon le modèle.</div>
+        <div class="alert-meta">
+          <span class="alert-tag">5575-GNVDE</span>
+          <span class="alert-tag">34 mois</span>
+          <span class="alert-tag">Rétrogradation contrat</span>
+        </div>
+      </div>
+      <div class="alert-right">
+        <div class="alert-prob medium">58%</div>
+        <div class="alert-time">il y a 1j</div>
+        <button class="alert-act-btn aab-amber" onclick="alert('Email de fidélisation envoyé')">Email fidélisation</button>
+      </div>
+    </div>
+
+    <div class="alert-card medium">
+      <div class="alert-icon ai-amber">📞</div>
+      <div class="alert-body">
+        <div class="alert-name">Ali Bouazizi — Absence de services de sécurité</div>
+        <div class="alert-desc">Pas de protection en ligne, pas de support technique. Ces clients sont 2.1× plus susceptibles de partir selon les données historiques.</div>
+        <div class="alert-meta">
+          <span class="alert-tag">8779-QRDMV</span>
+          <span class="alert-tag">Sans OnlineSecurity</span>
+          <span class="alert-tag">Sans TechSupport</span>
+        </div>
+      </div>
+      <div class="alert-right">
+        <div class="alert-prob medium">48%</div>
+        <div class="alert-time">il y a 2j</div>
+        <button class="alert-act-btn aab-amber" onclick="alert('Proposition d\'upgrade envoyée')">Proposer upgrade</button>
+      </div>
+    </div>
+
+  </div><!-- /alerts -->
+
+  <!-- ===== TRAINING ML ===== -->
+  <div class="page" id="page-training">
+
+    <div class="training-grid">
+      <!-- Left: config panel -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <div class="train-card">
+          <div class="train-section-title">Algorithme</div>
+          <div class="model-option active" onclick="selectModel(this,'Random Forest')">
+            <div class="mo-radio"></div>
+            <div class="mo-info">
+              <div class="mo-name">Random Forest</div>
+              <div class="mo-type">Ensemble · Arbres de décision</div>
+            </div>
+            <div class="mo-acc">80.4%</div>
+          </div>
+          <div class="model-option" onclick="selectModel(this,'Logistic Regression')">
+            <div class="mo-radio"></div>
+            <div class="mo-info">
+              <div class="mo-name">Logistic Regression</div>
+              <div class="mo-type">Linéaire · Classificateur</div>
+            </div>
+            <div class="mo-acc">79.1%</div>
+          </div>
+          <div class="model-option" onclick="selectModel(this,'SVM')">
+            <div class="mo-radio"></div>
+            <div class="mo-info">
+              <div class="mo-name">SVM</div>
+              <div class="mo-type">Kernel RBF · Marge</div>
+            </div>
+            <div class="mo-acc">78.3%</div>
+          </div>
+          <div class="model-option" onclick="selectModel(this,'KNN')">
+            <div class="mo-radio"></div>
+            <div class="mo-info">
+              <div class="mo-name">KNN</div>
+              <div class="mo-type">Instance-based · k voisins</div>
+            </div>
+            <div class="mo-acc">75.9%</div>
+          </div>
+          <div class="model-option" onclick="selectModel(this,'Neural Network')">
+            <div class="mo-radio"></div>
+            <div class="mo-info">
+              <div class="mo-name">Neural Network</div>
+              <div class="mo-type">MLP · 3 couches cachées</div>
+            </div>
+            <div class="mo-acc">81.2%</div>
+          </div>
+        </div>
+
+        <div class="train-card">
+          <div class="train-section-title">Hyperparamètres</div>
+          <div class="param-row">
+            <div class="param-label">n_estimators <span class="param-val" id="ne-val">100</span></div>
+            <input type="range" min="10" max="500" value="100" oninput="document.getElementById('ne-val').textContent=this.value">
+          </div>
+          <div class="param-row">
+            <div class="param-label">max_depth <span class="param-val" id="md-val">10</span></div>
+            <input type="range" min="1" max="50" value="10" oninput="document.getElementById('md-val').textContent=this.value">
+          </div>
+          <div class="param-row">
+            <div class="param-label">min_samples_split <span class="param-val" id="ms-val">2</span></div>
+            <input type="range" min="2" max="20" value="2" oninput="document.getElementById('ms-val').textContent=this.value">
+          </div>
+          <div class="param-row">
+            <div class="param-label">Test size</div>
+            <select>
+              <option>0.2 — split 80/20</option>
+              <option>0.25 — split 75/25</option>
+              <option>0.3 — split 70/30</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="train-card" style="display:flex;flex-direction:column;gap:7px;">
+          <div class="train-section-title">Actions</div>
+          <button class="btn btn-red" onclick="simulateTrain()">
+            <svg fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px">
+              <polygon points="5,3 19,12 5,21" fill="white"/>
+            </svg>
+            Entraîner le modèle
+          </button>
+          <button class="btn btn-amber" onclick="alert('Lancement du GridSearchCV…')">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px">
+              <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83"/>
+            </svg>
+            Auto-tune (GridSearch)
+          </button>
+          <button class="btn btn-green" onclick="exportCSV()">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            Exporter modèle .pkl
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: results panel -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <div class="train-card">
+          <div class="train-section-title">Statut de l'entraînement</div>
+          <div class="train-status-box" id="train-status">
+            Prêt — configurez les paramètres et lancez l'entraînement.
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="prog-fill" style="width:0%"></div>
+          </div>
+          <div class="progress-label" id="prog-label">—</div>
+        </div>
+
+        <div class="train-card">
+          <div class="train-section-title">Métriques de performance</div>
+          <div class="result-metrics">
+            <div class="result-metric">
+              <div class="rm-label">Accuracy</div>
+              <div class="rm-val good">80.4%</div>
+            </div>
+            <div class="result-metric">
+              <div class="rm-label">F1-Score</div>
+              <div class="rm-val ok">0.784</div>
+            </div>
+            <div class="result-metric">
+              <div class="rm-label">ROC-AUC</div>
+              <div class="rm-val ok">0.853</div>
+            </div>
+            <div class="result-metric">
+              <div class="rm-label">Recall (churn)</div>
+              <div class="rm-val warn">46.4%</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="train-card">
+            <div class="train-section-title">Matrice de confusion</div>
+            <div style="font-size:10px;color:var(--hint);text-align:center;margin-bottom:6px;">Prédit →</div>
+            <div class="cm-grid-2">
+              <div></div>
+              <div class="cm-ax">No churn</div>
+              <div class="cm-ax">Churn</div>
+              <div class="cm-ax" style="writing-mode:vertical-rl;transform:rotate(180deg);">Stay</div>
+              <div class="cm-c cm-tn"><div class="cm-n">958</div><div class="cm-s">TN</div></div>
+              <div class="cm-c cm-fp"><div class="cm-n">74</div><div class="cm-s">FP</div></div>
+              <div class="cm-ax" style="writing-mode:vertical-rl;transform:rotate(180deg);">Churn</div>
+              <div class="cm-c cm-fn"><div class="cm-n">202</div><div class="cm-s">FN</div></div>
+              <div class="cm-c cm-tp"><div class="cm-n">175</div><div class="cm-s">TP</div></div>
+            </div>
+            <div style="font-size:10px;color:var(--hint);text-align:center;margin-top:6px;">← Réel</div>
+          </div>
+
+          <div class="train-card">
+            <div class="train-section-title">Courbe ROC</div>
+            <svg class="roc-svg" viewBox="0 0 200 140" preserveAspectRatio="xMidYMid meet">
+              <line x1="25" y1="10" x2="25" y2="125" stroke="var(--border)" stroke-width="0.8"/>
+              <line x1="25" y1="125" x2="190" y2="125" stroke="var(--border)" stroke-width="0.8"/>
+              <line x1="25" y1="125" x2="190" y2="10" stroke="var(--border2)" stroke-width="0.8" stroke-dasharray="3 3"/>
+              <path d="M25,125 C55,95 80,58 108,38 C140,20 162,12 190,10"
+                    fill="none" stroke="var(--red-mid)" stroke-width="2" stroke-linecap="round"/>
+              <path d="M25,125 C55,95 80,58 108,38 C140,20 162,12 190,10 L190,125 Z"
+                    fill="var(--red-mid)" opacity="0.07"/>
+              <path d="M25,125 C58,98 84,62 112,44 C144,26 165,16 190,10"
+                    fill="none" stroke="var(--blue-mid)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+              <rect x="60" y="80" width="126" height="32" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="0.5"/>
+              <line x1="67" y1="90" x2="78" y2="90" stroke="var(--red-mid)" stroke-width="2"/>
+              <text x="81" y="93" font-size="8" fill="var(--ink2)" font-family="JetBrains Mono">RF 0.853</text>
+              <line x1="67" y1="103" x2="78" y2="103" stroke="var(--blue-mid)" stroke-width="1.5" stroke-dasharray="3 2"/>
+              <text x="81" y="106" font-size="8" fill="var(--ink2)" font-family="JetBrains Mono">LR 0.831</text>
+            </svg>
+          </div>
+        </div>
+
+        <div class="train-card">
+          <div class="train-section-title">Importance des variables (top 6)</div>
+          <div class="feat-row">
+            <div class="feat-name">tenure</div>
+            <div class="feat-track"><div class="feat-fill" style="width:100%"></div></div>
+            <div class="feat-val">22.1%</div>
+          </div>
+          <div class="feat-row">
+            <div class="feat-name">TotalCharges</div>
+            <div class="feat-track"><div class="feat-fill" style="width:83%"></div></div>
+            <div class="feat-val">18.3%</div>
+          </div>
+          <div class="feat-row">
+            <div class="feat-name">MonthlyCharges</div>
+            <div class="feat-track"><div class="feat-fill" style="width:70%"></div></div>
+            <div class="feat-val">15.4%</div>
+          </div>
+          <div class="feat-row">
+            <div class="feat-name">Contract_Two year</div>
+            <div class="feat-track"><div class="feat-fill" style="width:55%"></div></div>
+            <div class="feat-val">12.1%</div>
+          </div>
+          <div class="feat-row">
+            <div class="feat-name">InternetService_FO</div>
+            <div class="feat-track"><div class="feat-fill" style="width:42%"></div></div>
+            <div class="feat-val">9.2%</div>
+          </div>
+          <div class="feat-row">
+            <div class="feat-name">PaymentMethod</div>
+            <div class="feat-track"><div class="feat-fill" style="width:32%"></div></div>
+            <div class="feat-val">7.1%</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /training -->
+
+</main>
+</div>
+
+<script>
+/* =============================================
+   CLIENT DATA
+============================================= */
+const clients = {
+  martin: {
+    name: 'Martin Rousseau', id: '7590-VHVEG', initials: 'MR', avatarClass: 'avatar-red',
+    risk: 'ÉLEVÉ', riskClass: 'risk-high', bigRiskClass: 'risk-high', prob: 87,
+    tenure: '1 mois', monthly: '29.85$', total: '29.85$',
+    contract: 'Mois à mois', internet: 'DSL', payment: 'Chèque élec.',
+    partner: 'Non', dependents: 'Non', senior: 'Non',
+    factors: [
+      { icon: '⏱', text: 'Ancienneté très faible (1 mois) — signal le plus fort', impact: 'impact-high', label: 'Fort' },
+      { icon: '📋', text: 'Contrat mois-à-mois — aucun engagement', impact: 'impact-high', label: 'Fort' },
+      { icon: '💳', text: 'Paiement par chèque électronique — corrélé au churn', impact: 'impact-medium', label: 'Moyen' },
+      { icon: '🛡', text: 'Pas de service de sécurité en ligne', impact: 'impact-medium', label: 'Moyen' },
+    ]
+  },
+  leila: {
+    name: 'Leila Benali', id: '3668-QPYBK', initials: 'LB', avatarClass: 'avatar-red',
+    risk: 'ÉLEVÉ', riskClass: 'risk-high', bigRiskClass: 'risk-high', prob: 84,
+    tenure: '2 mois', monthly: '53.85$', total: '108.15$',
+    contract: 'Mois à mois', internet: 'DSL', payment: 'Chèque postal',
+    partner: 'Non', dependents: 'Non', senior: 'Non',
+    factors: [
+      { icon: '⏱', text: 'Très faible ancienneté (2 mois)', impact: 'impact-high', label: 'Fort' },
+      { icon: '📋', text: 'Contrat sans engagement', impact: 'impact-high', label: 'Fort' },
+      { icon: '📞', text: 'Pas de support technique', impact: 'impact-medium', label: 'Moyen' },
+    ]
+  },
+  omar: {
+    name: 'Omar Khalil', id: '9237-HQITU', initials: 'OK', avatarClass: 'avatar-red',
+    risk: 'ÉLEVÉ', riskClass: 'risk-high', bigRiskClass: 'risk-high', prob: 79,
+    tenure: '2 mois', monthly: '70.70$', total: '151.65$',
+    contract: 'Mois à mois', internet: 'Fibre optique', payment: 'Chèque élec.',
+    partner: 'Non', dependents: 'Non', senior: 'Non',
+    factors: [
+      { icon: '📡', text: 'Fibre optique à $70.70/mois — taux de churn de 41.9%', impact: 'impact-high', label: 'Fort' },
+      { icon: '⏱', text: 'Ancienneté de 2 mois seulement', impact: 'impact-high', label: 'Fort' },
+      { icon: '💳', text: 'Paiement électronique — facteur aggravant', impact: 'impact-medium', label: 'Moyen' },
+    ]
+  },
+  nadia: {
+    name: 'Nadia Mansouri', id: '9305-CDSKC', initials: 'NM', avatarClass: 'avatar-red',
+    risk: 'ÉLEVÉ', riskClass: 'risk-high', bigRiskClass: 'risk-high', prob: 76,
+    tenure: '8 mois', monthly: '99.65$', total: '820.50$',
+    contract: 'Mois à mois', internet: 'Fibre optique', payment: 'Chèque élec.',
+    partner: 'Non', dependents: 'Non', senior: 'Non',
+    factors: [
+      { icon: '💰', text: 'Charge mensuelle très élevée ($99.65)', impact: 'impact-high', label: 'Fort' },
+      { icon: '📡', text: 'Abonnée fibre optique sans engagement', impact: 'impact-high', label: 'Fort' },
+      { icon: '⏱', text: 'Ancienneté limitée (8 mois)', impact: 'impact-medium', label: 'Moyen' },
+    ]
+  },
+  youssef: {
+    name: 'Youssef Trabelsi', id: '5575-GNVDE', initials: 'YT', avatarClass: 'avatar-amber',
+    risk: 'MOYEN', riskClass: 'risk-medium', bigRiskClass: 'risk-medium', prob: 58,
+    tenure: '34 mois', monthly: '56.95$', total: '1 889.50$',
+    contract: 'Un an', internet: 'DSL', payment: 'Virement bancaire',
+    partner: 'Non', dependents: 'Oui', senior: 'Non',
+    factors: [
+      { icon: '📋', text: 'Contrat annuel — engagement intermédiaire', impact: 'impact-medium', label: 'Moyen' },
+      { icon: '💰', text: 'Charges cumulées importantes ($1 889)', impact: 'impact-low', label: 'Faible' },
+      { icon: '✅', text: 'Ancienneté de 34 mois — facteur de rétention', impact: 'impact-low', label: 'Faible' },
+    ]
+  },
+  sonia: {
+    name: 'Sonia Hamdi', id: '1452-KIOVK', initials: 'SH', avatarClass: 'avatar-amber',
+    risk: 'MOYEN', riskClass: 'risk-medium', bigRiskClass: 'risk-medium', prob: 53,
+    tenure: '22 mois', monthly: '89.10$', total: '1 949.40$',
+    contract: 'Mois à mois', internet: 'Fibre optique', payment: 'Carte de crédit',
+    partner: 'Oui', dependents: 'Non', senior: 'Non',
+    factors: [
+      { icon: '📡', text: 'Fibre optique — segment à risque élevé', impact: 'impact-medium', label: 'Moyen' },
+      { icon: '📋', text: 'Pas d\'engagement long terme', impact: 'impact-medium', label: 'Moyen' },
+      { icon: '✅', text: '22 mois d\'ancienneté — facteur positif', impact: 'impact-low', label: 'Faible' },
+    ]
+  },
+  ali: {
+    name: 'Ali Bouazizi', id: '8779-QRDMV', initials: 'AB', avatarClass: 'avatar-amber',
+    risk: 'MOYEN', riskClass: 'risk-medium', bigRiskClass: 'risk-medium', prob: 48,
+    tenure: '15 mois', monthly: '45.20$', total: '678.00$',
+    contract: 'Mois à mois', internet: 'DSL', payment: 'Chèque postal',
+    partner: 'Non', dependents: 'Non', senior: 'Oui',
+    factors: [
+      { icon: '🛡', text: 'Sans sécurité en ligne ni support technique', impact: 'impact-medium', label: 'Moyen' },
+      { icon: '👤', text: 'Client senior — profil à surveiller', impact: 'impact-medium', label: 'Moyen' },
+      { icon: '✅', text: 'Charges modérées ($45.20)', impact: 'impact-low', label: 'Faible' },
+    ]
+  },
+  fatma: {
+    name: 'Fatma Chaabane', id: '7795-CFOCW', initials: 'FC', avatarClass: 'avatar-green',
+    risk: 'FAIBLE', riskClass: 'risk-low', bigRiskClass: 'risk-low', prob: 12,
+    tenure: '45 mois', monthly: '42.30$', total: '1 840.75$',
+    contract: 'Un an', internet: 'Pas de service', payment: 'Virement bancaire',
+    partner: 'Oui', dependents: 'Non', senior: 'Non',
+    factors: [
+      { icon: '✅', text: 'Longue ancienneté (45 mois) — client fidèle', impact: 'impact-low', label: 'Positif' },
+      { icon: '✅', text: 'Contrat annuel avec engagement', impact: 'impact-low', label: 'Positif' },
+      { icon: '✅', text: 'Charges mensuelles modérées', impact: 'impact-low', label: 'Positif' },
+    ]
+  },
+  karim: {
+    name: 'Karim Dridi', id: '6388-TABGU', initials: 'KD', avatarClass: 'avatar-green',
+    risk: 'FAIBLE', riskClass: 'risk-low', bigRiskClass: 'risk-low', prob: 8,
+    tenure: '60 mois', monthly: '38.50$', total: '2 310.00$',
+    contract: 'Deux ans', internet: 'DSL', payment: 'Virement bancaire',
+    partner: 'Oui', dependents: 'Oui', senior: 'Non',
+    factors: [
+      { icon: '✅', text: '5 ans d\'ancienneté — client très fidèle', impact: 'impact-low', label: 'Positif' },
+      { icon: '✅', text: 'Contrat 2 ans — risque minimal', impact: 'impact-low', label: 'Positif' },
+      { icon: '✅', text: 'Famille (partenaire + dépendants)', impact: 'impact-low', label: 'Positif' },
+    ]
+  },
+};
+
+/* =============================================
+   RENDER CLIENT PROFILE
+============================================= */
+function renderProfile(key) {
+  const c = clients[key];
+  if (!c) return;
+
+  const probColor = c.prob >= 70 ? 'var(--red)' : c.prob >= 40 ? 'var(--amber)' : 'var(--green)';
+  const barColor  = c.prob >= 70 ? '#e74c3c' : c.prob >= 40 ? '#f39c12' : '#27ae60';
+
+  const factorsHTML = c.factors.map(f => `
+    <div class="factor-row">
+      <div class="factor-icon">${f.icon}</div>
+      <div class="factor-text">${f.text}</div>
+      <div class="factor-impact ${f.impact}">${f.label}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('client-profile-panel').innerHTML = `
+    <div class="profile-header">
+      <div class="profile-avatar ${c.avatarClass}">${c.initials}</div>
+      <div>
+        <div class="profile-name">${c.name}</div>
+        <div class="profile-id">${c.id}</div>
+      </div>
+      <div class="profile-risk-pill">
+        <span class="big-risk-badge ${c.riskClass}">${c.risk}</span>
+        <div class="churn-prob">Probabilité de churn : <strong style="color:${probColor}">${c.prob}%</strong></div>
+      </div>
+    </div>
+
+    <div class="profile-grid">
+      <div class="profile-card">
+        <div class="profile-card-title">Score de risque</div>
+        <div class="gauge-wrap">
+          <span class="gauge-pct" style="color:${probColor}">${c.prob}%</span>
+          <div class="gauge-bar-track">
+            <div class="gauge-bar-fill" style="width:${c.prob}%;background:${barColor}"></div>
+          </div>
+          <div class="gauge-label">Probabilité de départ estimée par le modèle RF</div>
+        </div>
+      </div>
+
+      <div class="profile-card">
+        <div class="profile-card-title">Informations contrat</div>
+        <div class="profile-fields">
+          <div class="profile-field"><span class="profile-field-label">Ancienneté</span><span class="profile-field-val">${c.tenure}</span></div>
+          <div class="profile-field"><span class="profile-field-label">Contrat</span><span class="profile-field-val">${c.contract}</span></div>
+          <div class="profile-field"><span class="profile-field-label">Internet</span><span class="profile-field-val">${c.internet}</span></div>
+          <div class="profile-field"><span class="profile-field-label">Paiement</span><span class="profile-field-val">${c.payment}</span></div>
+        </div>
+      </div>
+
+      <div class="profile-card">
+        <div class="profile-card-title">Facturation</div>
+        <div class="profile-fields">
+          <div class="profile-field"><span class="profile-field-label">Mensuel</span><span class="profile-field-val" style="color:${probColor}">${c.monthly}</span></div>
+          <div class="profile-field"><span class="profile-field-label">Total cumulé</span><span class="profile-field-val">${c.total}</span></div>
+        </div>
+      </div>
+
+      <div class="profile-card">
+        <div class="profile-card-title">Profil client</div>
+        <div class="profile-fields">
+          <div class="profile-field"><span class="profile-field-label">Partenaire</span><span class="profile-field-val">${c.partner}</span></div>
+          <div class="profile-field"><span class="profile-field-label">Dépendants</span><span class="profile-field-val">${c.dependents}</span></div>
+          <div class="profile-field"><span class="profile-field-label">Senior</span><span class="profile-field-val">${c.senior}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-card" style="margin-bottom:14px;">
+      <div class="profile-card-title">Facteurs de risque détectés</div>
+      <div class="factors-list">${factorsHTML}</div>
+    </div>
+
+    <div class="action-row">
+      <button class="action-btn primary" onclick="alert('Email de rétention envoyé à ${c.name}')">
+        📧 Contacter le client
+      </button>
+      <button class="action-btn secondary" onclick="alert('Offre personnalisée générée pour ${c.name}')">
+        🎁 Proposer une offre
+      </button>
+      <button class="action-btn" onclick="alert('Rapport exporté pour ${c.name}')">
+        ⬇ Exporter rapport
+      </button>
+    </div>
+  `;
+}
+
+/* =============================================
+   NAVIGATION
+============================================= */
+function showTab(tab) {
+  const tabs = ['overview','clients','alerts','training'];
+  document.querySelectorAll('.nav-tab').forEach((t, i) => {
+    t.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+}
+
+/* =============================================
+   CLIENT SELECTION
+============================================= */
+function showClient(el, key) {
+  document.querySelectorAll('.sidebar .client-row').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function selectClientRow(el, key) {
+  document.querySelectorAll('#page-clients .client-table-row').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+  renderProfile(key);
+}
+
+/* =============================================
+   MODEL SELECTION
+============================================= */
+function selectModel(el, name) {
+  document.querySelectorAll('.model-option').forEach(m => m.classList.remove('active'));
+  el.classList.add('active');
+}
+
+/* =============================================
+   TRAIN SIMULATION
+============================================= */
+function simulateTrain() {
+  showTab('training');
+  const fill   = document.getElementById('prog-fill');
+  const label  = document.getElementById('prog-label');
+  const status = document.getElementById('train-status');
+
+  fill.style.width = '0%';
+  status.style.color = 'var(--muted)';
+
+  const steps = [
+    [8,  'Initialisation du pipeline sklearn…'],
+    [22, 'StandardScaler — normalisation des features…'],
+    [38, 'Construction des arbres (25%)…'],
+    [55, 'Construction des arbres (55%)…'],
+    [70, 'Finalisation des arbres (90%)…'],
+    [82, 'Évaluation sur le test set…'],
+    [91, 'Calcul accuracy, F1, ROC-AUC…'],
+    [97, 'Mise à jour des prédictions clients…'],
+    [100,'Entraînement terminé — modèle déployé ✓'],
+  ];
+
+  let i = 0;
+  const run = () => {
+    if (i >= steps.length) {
+      status.style.color = 'var(--green)';
+      label.textContent = 'Terminé — 1 869 clients reclassifiés';
+      return;
+    }
+    const [pct, msg] = steps[i++];
+    fill.style.width = pct + '%';
+    label.textContent = msg;
+    status.textContent = '[' + pct + '%] ' + msg;
+    setTimeout(run, 350 + Math.random() * 180);
+  };
+  run();
+}
+
+/* =============================================
+   FILTER
+============================================= */
+function filterClients(val) {
+  document.querySelectorAll('.sidebar .client-row').forEach(row => {
+    const name = row.querySelector('.client-name').textContent.toLowerCase();
+    const id   = row.querySelector('.client-id').textContent.toLowerCase();
+    row.style.display = (name.includes(val.toLowerCase()) || id.includes(val.toLowerCase())) ? '' : 'none';
+  });
+}
+
+function filterRisk(level, el) {
+  // visual only for demo
+  document.querySelectorAll('.filter-chip').forEach(c => {
+    c.classList.remove('active-red','active-amber','active-green');
+  });
+  if (level === 'high') el.classList.add('active-red');
+  else if (level === 'medium') el.classList.add('active-amber');
+  else if (level === 'low') el.classList.add('active-green');
+}
+
+/* =============================================
+   EXPORT
+============================================= */
+function exportCSV() {
+  const csv = [
+    'ID,Nom,Risque,Probabilité,Tenure,MensuelCharges,Contrat',
+    '7590-VHVEG,Martin Rousseau,ÉLEVÉ,87%,1,29.85,Mois-à-mois',
+    '3668-QPYBK,Leila Benali,ÉLEVÉ,84%,2,53.85,Mois-à-mois',
+    '9237-HQITU,Omar Khalil,ÉLEVÉ,79%,2,70.70,Mois-à-mois',
+    '9305-CDSKC,Nadia Mansouri,ÉLEVÉ,76%,8,99.65,Mois-à-mois',
+    '5575-GNVDE,Youssef Trabelsi,MOYEN,58%,34,56.95,Un an',
+    '1452-KIOVK,Sonia Hamdi,MOYEN,53%,22,89.10,Mois-à-mois',
+    '8779-QRDMV,Ali Bouazizi,MOYEN,48%,15,45.20,Mois-à-mois',
+    '7795-CFOCW,Fatma Chaabane,FAIBLE,12%,45,42.30,Un an',
+    '6388-TABGU,Karim Dridi,FAIBLE,8%,60,38.50,Deux ans',
+  ].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'churn_predictions.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* =============================================
+   INIT
+============================================= */
+renderProfile('martin');
+</script>
+</body>
+</html>
