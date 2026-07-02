@@ -104,5 +104,4 @@ There is a `Makefile` with convenience targets: `setup`, `mlflow-ui`, `tache4`,
 `tache5`, `serve`, `test`, `pipeline` and `clean`. On Windows you can run these
 from PowerShell using `make <target>` if `make` is available (WSL or Make for Windows).
 
-## License
-Add your preferred license file if needed.
+
